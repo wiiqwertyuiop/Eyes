@@ -10,8 +10,9 @@ using System.Windows.Forms;
 
 /*
  * TODO:
- * Make eye movement better
- * Optimize (math might be able to be made simpler)
+ * Optimize and clean up code
+ * 
+ * Add switch between normal eye movement, independent, and same
  * 
  */
 
@@ -29,6 +30,8 @@ namespace Eyes
 
         float y;
         float sizeY;
+
+        float CanvasMiddle;
 
         public Form1()
         {
@@ -51,7 +54,7 @@ namespace Eyes
 
             float CanvasWidth = FormWidth * 0.75f; // X scale
             x = FormWidth - CanvasWidth; // aka canvas zero X pos
-            float CanvasMiddle = CanvasWidth - x;
+            CanvasMiddle = CanvasWidth - x;
             sizeX = CanvasMiddle / 2.5f;
 
             float CanvasHeight = FormHeight * 0.62f; // Y scale
@@ -60,13 +63,14 @@ namespace Eyes
 
             // Draw eyes
             g.DrawEllipse(myPen, x, y, sizeX, sizeY);
-            g.DrawEllipse(myPen, CanvasMiddle+(x-sizeX), y, sizeX, sizeY);
+            g.DrawEllipse(myPen, CanvasWidth-sizeX, y, sizeX, sizeY);
 
             // Draw eyeballs
             PointF EyeBall = DrawEyeBall();
             g.FillEllipse(myBrush, EyeBall.X, EyeBall.Y, sizeX / 4, sizeY / 4); // Left
 
-            EyeBall = DrawEyeBall(CanvasMiddle - sizeX);
+            // note y pos is always the same
+            EyeBall = DrawEyeBall(true);
             g.FillEllipse(myBrush, EyeBall.X, EyeBall.Y, sizeX / 4, sizeY / 4); // Right
 
         }
@@ -83,11 +87,27 @@ namespace Eyes
             this.Invalidate();
         }
 
-        private PointF DrawEyeBall(float which = 0)
+        private PointF DrawEyeBall(bool right = false)
         {
+
+            float which = 0;
+            if (right) which = CanvasMiddle - sizeX;
+
             // Get middle of eye balls
             float EyeMidX = (x + (x + sizeX)) / 2 - (sizeX / 8) + which;
             float EyeMidY = (y + (y + sizeY)) / 2 - (sizeY / 8);
+
+            float org = EyeMidX;
+
+            if (!right && mouseX > CanvasMiddle)
+            {
+                which = CanvasMiddle - sizeX;
+                EyeMidX += which;
+            } else if (right && mouseX < CanvasMiddle-15) // note this is hacky here
+            {
+                EyeMidX -= which;
+                which = 0;
+            }
 
             // Distance from middle of eyeball to edge of eye
             float xBase = (x + sizeX + which) - EyeMidX - sizeX / 4;
@@ -107,19 +127,22 @@ namespace Eyes
             if (hypotenuse / x < 1) xBase *= (float)hypotenuse / x;
             if (hypotenuse / y < 1) yBase *= (float)hypotenuse / y;
 
-            /*if (hypotenuse / x < 1)
+            // If the mouse position is greater than the middle of the left eye and we are drawing the right eye do hypot
+            float lefteyemiddle = (x + (x + sizeX)) / 2 - (sizeX / 8);
+            float righteyemiddle = (x + (x + sizeX)) / 2 - (sizeX / 8) + CanvasMiddle - sizeX;
+            if (mouseX > lefteyemiddle && mouseX < CanvasMiddle-15 && right)
             {
-                xBase -= xBase * ((float)hypotenuse / x);
-            } else
+                xchange *= -1;
+            } else if (mouseX < righteyemiddle && mouseX > CanvasMiddle && !right)
             {
-                xBase = 0;
-            }*/
+                xchange *= -1;
+            }
 
             // Move eyeball from middle to where it should go based on mouse position
-            EyeMidX += xBase * (float)xchange;
+            org += xBase * (float)xchange;
             EyeMidY += yBase * (float)ychange;
 
-            return new PointF(EyeMidX, EyeMidY);
+            return new PointF(org, EyeMidY);
         }
     }
 }
